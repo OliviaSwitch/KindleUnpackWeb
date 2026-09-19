@@ -45,7 +45,9 @@ jsDelivr 带 `Access-Control-Allow-Origin: *`），但部分浏览器会拦截 `
 
 - **Pages** —— 产物复制成 `_site/index.html`，连同 `docs/architecture.html` 一起部署。
   在线版：<https://oliviaswitch.github.io/KindleUnpackWeb/>
-- **Release** —— 产物挂到一个滚动更新的 `latest` release 上。下载地址固定，永远指向最新构建：
+- **Release** —— 每次构建发一个自己的 release，标题是构建日期，历史版本连同资产都留在
+  Releases 页上，不覆盖旧的。新 release 会自动标成 latest，所以下载地址仍然固定，
+  永远指向最新构建：
   <https://github.com/OliviaSwitch/KindleUnpackWeb/releases/latest/download/kindleunpack.html>
 
 构建产物不入库，站点和下载包都无需人工更新——同步上游后会自动重建。

@@ -74,12 +74,20 @@ jobs:
         with:
           name: kindleunpack-html
 
-      # tag 固定为 latest 并覆盖旧资产，于是
-      # /releases/latest/download/kindleunpack.html 永远指向最新构建。
+      # runner 是 UTC，这里换算到作者所在时区，免得凌晨构建被标成前一天。
+      - id: stamp
+        run: echo "date=$(TZ=Asia/Shanghai date '+%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+
+      # 每次构建发一个自己的 release，而不是往固定 tag 上覆盖旧资产，
+      # 于是历史版本连同资产一起留在 Releases 页上。
+      # tag 里的 run_number 保证唯一，同一天多次推送不会撞车，
+      # 也就不存在「覆盖别人资产」这回事。
+      # 下载地址仍然固定：新 release 每次都 make_latest，
+      # /releases/latest/download/kindleunpack.html 始终指向最新构建。
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: latest
-          name: 最新构建
+          tag_name: build-${{ steps.stamp.outputs.date }}-${{ github.run_number }}
+          name: ${{ steps.stamp.outputs.date }}
           make_latest: true
           files: kindleunpack.html
           body: |

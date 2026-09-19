@@ -130,7 +130,7 @@ Pages 的 workflow 也已写好。剩下的是在 GitHub 上点两下人工开�
 ```
 KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master）
 ├── lib/  libgui/  COPYING.txt  README.md …    上游原样，一个字节不动
-├── .github/workflows/pages.yml                已建：构建 + 部署 Pages + 更新 latest release
+├── .github/workflows/pages.yml                已建：构建 + 部署 Pages + 发布 release
 └── web/                                       唯一的新增顶层目录
     ├── build.py  app.js  template.html  README.md
     ├── .gitignore                             （已加：忽略构建产物 kindleunpack.html）
@@ -173,8 +173,9 @@ KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master�
 （而不是另起一个 runner 重新构建一遍）。两路发布：
 
 - **Pages** —— 产物复制成 `_site/index.html`，连同 `web/docs/architecture.html` 一起部署
-- **Release** —— 产物挂到 tag 固定为 `latest` 的 release 上（`softprops/action-gh-release`），
-  每次构建覆盖旧资产，于是**下载地址固定不变**
+- **Release** —— 每次构建发一个自己的 release（`softprops/action-gh-release`），
+  tag 是 `build-<构建日期>-<run_number>`，标题是构建日期。历史版本连同资产一起保留，
+  不再往固定 tag 上覆盖。新 release 标 `make_latest`，于是**下载地址固定不变**
 
 `web/build.py` **不需要改**——产物仍写 `web/kindleunpack.html`，本地开发流程不变。
 
