@@ -130,7 +130,7 @@ Pages 的 workflow 也已写好。剩下的是在 GitHub 上点两下人工开�
 ```
 KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master）
 ├── lib/  libgui/  COPYING.txt  README.md …    上游原样，一个字节不动
-├── .github/workflows/pages.yml                已建：构建 + 组装 _site + 部署 Pages
+├── .github/workflows/pages.yml                已建：构建 + 部署 Pages + 更新 latest release
 └── web/                                       唯一的新增顶层目录
     ├── build.py  app.js  template.html  README.md
     ├── .gitignore                             （已加：忽略构建产物 kindleunpack.html）
@@ -167,15 +167,22 @@ KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master�
 
 ### 5.5 实施状态
 
-**已完成**：`.github/workflows/pages.yml`。`web/build.py` **不需要改**——产物仍写
-`web/kindleunpack.html`，由 workflow 复制成 `_site/index.html`，本地开发流程不变。
+**已完成**：`.github/workflows/pages.yml` 已跑通。它一次构建、两路发布：
+
+- **Pages** —— 产物复制成 `_site/index.html`，连同 `web/docs/architecture.html` 一起部署
+- **Release** —— 产物挂到 tag 固定为 `latest` 的 release 上（`softprops/action-gh-release`），
+  每次构建覆盖旧资产，于是**下载地址固定不变**
+
+`web/build.py` **不需要改**——产物仍写 `web/kindleunpack.html`，本地开发流程不变。
 
 注意 `.github/` 是 `web/` 之外**唯一**的新增目录，这是 GitHub 的硬性要求（workflow 只能放这里），
-不构成对隔离约定的破坏。
+不构成对隔离约定的破坏。另外 workflow 需要 `contents: write` 权限（建 release 用），
+比只有 Pages 时多了一项。
 
-**还需人工做一次**：启用 Actions、把 Pages 的 Source 切成「GitHub Actions」（见 5.3）。
+固定地址：
 
-站点结构：`/` = 应用本体，`/architecture.html` = 架构文档。
+- 在线版 <https://oliviaswitch.github.io/KindleUnpackWeb/>
+- 下载 <https://github.com/OliviaSwitch/KindleUnpackWeb/releases/latest/download/kindleunpack.html>
 
 ---
 

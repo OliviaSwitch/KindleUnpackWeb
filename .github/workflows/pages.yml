@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # 建/更新 release 需要
   pages: write
   id-token: write
 
@@ -26,6 +26,23 @@ jobs:
 
       - name: Build single-file page
         run: python3 web/build.py
+
+      # 挂到一个 tag 固定为 latest 的 release 上并覆盖旧资产，
+      # 于是 /releases/latest/download/kindleunpack.html 永远是最新构建。
+      - name: Publish downloadable build
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: 最新构建
+          make_latest: true
+          files: web/kindleunpack.html
+          body: |
+            由 CI 从 master 分支自动构建的单文件版本。
+
+            下载 `kindleunpack.html` 后直接双击即可在浏览器打开（首次需要联网
+            加载 Pyodide 运行时）。
+
+            在线版：https://oliviaswitch.github.io/KindleUnpackWeb/
 
       # Pages 的「Deploy from a branch」只能选仓库根或 /docs 两个位置，
       # 而把 index.html 放仓库根会让 Pages 把整个仓库当站点发布。

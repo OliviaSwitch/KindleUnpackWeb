@@ -40,11 +40,15 @@ jsDelivr 带 `Access-Control-Allow-Origin: *`），但部分浏览器会拦截 `
 
 ## 部署
 
-`master` 每次 push 都会触发 `.github/workflows/pages.yml`：CI 里跑 `build.py`，把产物复制成
-`_site/index.html`，连同 `docs/architecture.html` 一起部署到 GitHub Pages。构建产物不入库，
-站点无需人工更新——同步上游后也会自动重建。
+`master` 每次 push 都会触发 `.github/workflows/pages.yml`：CI 里跑 `build.py`，然后一次构建、
+两路发布：
 
-站点：<https://oliviaswitch.github.io/KindleUnpackWeb/>
+- **Pages** —— 产物复制成 `_site/index.html`，连同 `docs/architecture.html` 一起部署。
+  在线版：<https://oliviaswitch.github.io/KindleUnpackWeb/>
+- **Release** —— 产物挂到一个滚动更新的 `latest` release 上。下载地址固定，永远指向最新构建：
+  <https://github.com/OliviaSwitch/KindleUnpackWeb/releases/latest/download/kindleunpack.html>
+
+构建产物不入库，站点和下载包都无需人工更新——同步上游后会自动重建。
 
 本地开发流程不受影响，仍然是 `python3 web/build.py` 产出 `web/kindleunpack.html`。
 
