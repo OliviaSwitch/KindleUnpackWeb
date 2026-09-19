@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KindleUnpack Web</title>
+<style>
+  :root {
+    --bg: #f7f7f5;
+    --panel: #ffffff;
+    --border: #e2e2de;
+    --text: #1c1c1a;
+    --muted: #6b6b66;
+    --accent: #2f6f4f;
+    --accent-text: #ffffff;
+    --log-bg: #1c1c1a;
+    --log-text: #d8d8d2;
+    --log-err: #ff8a7a;
+    --danger: #a33a2a;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a;
+      --panel: #1e1e23;
+      --border: #32323a;
+      --text: #e8e8e4;
+      --muted: #9a9a94;
+      --accent: #4a9d72;
+      --accent-text: #0d0d10;
+      --log-bg: #0e0e11;
+      --log-text: #cfcfc8;
+      --danger: #e0705c;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 28px 20px 64px;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+
+  header { margin-bottom: 24px; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 13.5px; margin: 0; }
+  .sub code { font-size: 12.5px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .card > h2 {
+    font-size: 13px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--muted); margin: 0 0 14px;
+  }
+
+  /* drop zone */
+  #drop {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 30px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  #drop:hover, #drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+  /* keep drag events anchored to the zone itself instead of its children */
+  #drop > * { pointer-events: none; }
+  #drop .big { font-size: 15px; margin-bottom: 4px; }
+  #drop .hint { color: var(--muted); font-size: 13px; }
+  #fileName { margin-top: 12px; font-size: 13.5px; font-weight: 600; word-break: break-all; }
+  #fileName .meta { font-weight: 400; color: var(--muted); }
+  input[type=file] { display: none; }
+
+  /* options */
+  .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px 20px; }
+  label.opt { display: flex; gap: 9px; align-items: flex-start; font-size: 13.5px; cursor: pointer; }
+  label.opt input { margin: 3px 0 0; accent-color: var(--accent); flex: none; }
+  label.opt .t { display: block; }
+  label.opt .d { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+  .selectrow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-size: 13.5px; }
+  select {
+    font: inherit; font-size: 13.5px; padding: 5px 9px;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--panel); color: var(--text);
+  }
+
+  /* buttons */
+  button {
+    font: inherit; font-size: 14px; font-weight: 600;
+    padding: 10px 18px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  }
+  button:hover:not(:disabled) { border-color: var(--muted); }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .status { font-size: 13px; color: var(--muted); }
+
+  /* log */
+  #log {
+    background: var(--log-bg); color: var(--log-text);
+    font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    border-radius: 8px; padding: 14px; height: 320px; overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word; margin: 0;
+  }
+  #log .e { color: var(--log-err); }
+  #log .s { color: #7fc79b; }
+  #log:empty::before { content: "（日志为空）"; color: var(--muted); }
+
+  /* result */
+  #result { display: none; }
+  #result.show { display: block; }
+  #tree {
+    font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    max-height: 280px; overflow: auto; margin: 14px 0 0;
+    border: 1px solid var(--border); border-radius: 8px; padding: 12px;
+    white-space: pre; color: var(--muted);
+  }
+  .warn {
+    border-left: 3px solid var(--danger); padding: 2px 0 2px 12px;
+    color: var(--muted); font-size: 13px; margin: 14px 0 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>KindleUnpack Web</h1>
+    <p class="sub">
+      浏览器内运行的 Kindle/Mobipocket 解包器 · 原版 Python <code>lib/</code> 经 Pyodide
+      <span id="pyver">加载中…</span> 运行，产出与原版命令行完全一致的文件树
+    </p>
+  </header>
+
+  <div class="card">
+    <h2>1 · 选择文件</h2>
+    <div id="drop">
+      <div class="big">拖入 .mobi / .azw / .azw3 / .azw4 / .prc 文件</div>
+      <div class="hint">或点击此处选择</div>
+      <div id="fileName"></div>
+    </div>
+    <input type="file" id="file" accept=".mobi,.azw,.azw3,.azw4,.prc,.MOBI,.AZW,.AZW3,.AZW4,.PRC">
+  </div>
+
+  <div class="card">
+    <h2>2 · 选项</h2>
+    <div class="selectrow">
+      <label for="epubver">EPUB 版本</label>
+      <select id="epubver">
+        <option value="2" selected>2 — EPUB 2（默认）</option>
+        <option value="3">3 — EPUB 3</option>
+        <option value="A">A — 自动判断</option>
+        <option value="F">F — 强制适配 EPUB 2 定义</option>
+      </select>
+    </div>
+    <div class="opts">
+      <label class="opt"><input type="checkbox" id="optSplit">
+        <span><span class="t">拆分合体书（-s）</span><span class="d">把 mobi7 / mobi8 拆成两本独立的书</span></span></label>
+      <label class="opt"><input type="checkbox" id="optHd">
+        <span><span class="t">使用高清图（-i）</span><span class="d">存在 HD Images 时覆盖低分辨率图片</span></span></label>
+      <label class="opt"><input type="checkbox" id="optDump">
+        <span><span class="t">导出 header 等信息（-d）</span><span class="d">额外输出 header dump 与原始数据文件</span></span></label>
+      <label class="opt"><input type="checkbox" id="optRaw">
+        <span><span class="t">写出原始数据（-r）</span><span class="d">把每个 record 原样 dump 到输出目录</span></span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>3 · 解包</h2>
+    <div class="actions">
+      <button id="run" class="primary" disabled>开始解包</button>
+      <span class="status" id="status">正在加载 Pyodide 运行时…</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>日志</h2>
+    <pre id="log"></pre>
+  </div>
+
+  <div class="card" id="result">
+    <h2>结果</h2>
+    <div class="actions">
+      <button id="dl" class="primary">下载 .zip</button>
+      <button id="saveDir" style="display:none">导出到文件夹…</button>
+      <span class="status" id="resultInfo"></span>
+    </div>
+    <div id="tree"></div>
+  </div>
+
+</div>
+
+<script>
+/*__LIB_SOURCES__*/
+</script>
+<script>
+/*__APP_JS__*/
+</script>
+</body>
+</html>

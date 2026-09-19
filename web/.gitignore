@@ -1,0 +1,5 @@
+# `python3 web/build.py` 的构建产物，不入库；部署时由 CI 重新构建。
+kindleunpack.html
+
+# 注意：仓库根的 .gitignore 忽略了 *.json。将来 web/ 若需要提交 .json 文件，
+# 必须在这里用 ! 重新包含，否则会被静默忽略。

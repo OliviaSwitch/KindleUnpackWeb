@@ -1,0 +1,1014 @@
+<title>KindleUnpack 架构解剖</title>
+<style>
+/* ============================================================
+   KindleUnpack 架构文档 — 冷调石板纸面 × 琥珀强调
+   主题令牌：裸 :root = 完整浅色；媒体查询与 [data-theme] 只重定义令牌
+   ============================================================ */
+:root{
+  --ground:#EAEDEF;
+  --surface:#F6F7F8;
+  --surface-2:#FFFFFF;
+  --ink:#111820;
+  --ink-2:#37434D;
+  --muted:#5F6C77;
+  --rule:#CBD3D8;
+  --rule-strong:#A6B2BA;
+  --accent:#B45309;
+  --accent-ink:#8A3E06;
+  --accent-soft:#F1DCC0;
+  --teal:#0F766E;
+  --teal-soft:#CDE6E3;
+  --violet:#5B21B6;
+  --violet-soft:#DFD7F6;
+  --slate:#3D5C7C;
+  --slate-soft:#D2DFEA;
+  --rose:#9F1239;
+  --code-bg:#E2E7EA;
+  --shadow:0 1px 2px rgba(17,24,32,.05), 0 10px 28px -18px rgba(17,24,32,.3);
+
+  --serif:Georgia,"Times New Roman","Songti SC","Noto Serif CJK SC","Source Han Serif SC",serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono","Cascadia Mono","JetBrains Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+
+  --step--1:0.8125rem;
+  --step-0:1rem;
+  --step-1:1.1875rem;
+  --step-2:1.4375rem;
+  --step-3:1.8125rem;
+  --step-4:2.375rem;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0D1317;
+    --surface:#141C22;
+    --surface-2:#1A242B;
+    --ink:#E6EBEE;
+    --ink-2:#C0CBD3;
+    --muted:#8B9AA5;
+    --rule:#27343D;
+    --rule-strong:#3D4D58;
+    --accent:#E8A055;
+    --accent-ink:#F0BC85;
+    --accent-soft:#372714;
+    --teal:#5FD0C0;
+    --teal-soft:#12302E;
+    --violet:#B49BF5;
+    --violet-soft:#241C3D;
+    --slate:#8FB3D6;
+    --slate-soft:#1B2A38;
+    --rose:#F2789B;
+    --code-bg:#111A20;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0D1317;
+  --surface:#141C22;
+  --surface-2:#1A242B;
+  --ink:#E6EBEE;
+  --ink-2:#C0CBD3;
+  --muted:#8B9AA5;
+  --rule:#27343D;
+  --rule-strong:#3D4D58;
+  --accent:#E8A055;
+  --accent-ink:#F0BC85;
+  --accent-soft:#372714;
+  --teal:#5FD0C0;
+  --teal-soft:#12302E;
+  --violet:#B49BF5;
+  --violet-soft:#241C3D;
+  --slate:#8FB3D6;
+  --slate-soft:#1B2A38;
+  --rose:#F2789B;
+  --code-bg:#111A20;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:var(--step-0);
+  line-height:1.72;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+.wrap{max-width:1060px;margin:0 auto;padding:0 clamp(1rem,4vw,2.5rem) 6rem}
+
+/* ---------- 通用排版 ---------- */
+h1,h2,h3,h4{font-family:var(--serif);text-wrap:balance;margin:0;line-height:1.24;letter-spacing:-.005em}
+p{margin:0}
+a{color:var(--accent);text-decoration:none;text-underline-offset:.22em}
+a:hover{text-decoration:underline}
+a:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:2px}
+code,kbd,pre{font-family:var(--mono);font-size:.9em}
+code{background:var(--code-bg);padding:.1em .38em;border-radius:3px;font-size:.855em;color:var(--ink)}
+pre{margin:0;overflow-x:auto}
+strong{font-weight:650;color:var(--ink)}
+.eyebrow{
+  font-family:var(--mono);font-size:.6875rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;
+}
+
+/* ---------- 页头 ---------- */
+header.masthead{padding:clamp(3rem,9vw,6rem) 0 2rem}
+.masthead .kicker{
+  font-family:var(--mono);font-size:.6875rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:1.25rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;
+}
+.masthead .kicker::after{content:"";flex:1;min-width:2rem;height:1px;background:var(--rule-strong)}
+.masthead h1{font-size:clamp(2.1rem,5.4vw,var(--step-4));font-weight:600}
+.masthead .lede{
+  margin-top:1.25rem;font-size:var(--step-1);color:var(--ink-2);max-width:60ch;line-height:1.66;
+}
+.meta{
+  display:flex;flex-wrap:wrap;gap:.4rem .45rem;margin-top:2rem;
+}
+.chip{
+  font-family:var(--mono);font-size:.75rem;letter-spacing:.02em;
+  border:1px solid var(--rule);background:var(--surface);
+  padding:.32rem .68rem;border-radius:2px;color:var(--ink-2);
+  font-variant-numeric:tabular-nums;
+}
+.chip b{color:var(--accent);font-weight:600}
+
+/* ---------- 记录条带图 ---------- */
+.strip-figure{
+  margin:2.75rem 0 0;border:1px solid var(--rule);background:var(--surface);
+  border-radius:3px;padding:1.25rem 1.25rem 1rem;box-shadow:var(--shadow);
+}
+.strip-head{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;flex-wrap:wrap;margin-bottom:1.1rem}
+.strip-head .t{font-family:var(--mono);font-size:.75rem;color:var(--ink-2);letter-spacing:.03em}
+.strip{display:flex;gap:2px;height:58px;align-items:stretch}
+.seg{
+  position:relative;border:0;padding:0;cursor:pointer;background:var(--seg);
+  border-radius:2px;min-width:6px;transition:opacity .15s ease, transform .15s ease;
+  display:flex;align-items:flex-end;justify-content:center;overflow:hidden;
+}
+.seg span{
+  font-family:var(--mono);font-size:.6rem;color:var(--seg-ink);writing-mode:vertical-rl;
+  padding-bottom:.3rem;letter-spacing:.05em;white-space:nowrap;opacity:.9;
+}
+.seg:hover{transform:translateY(-2px)}
+.strip:hover .seg{opacity:.42}
+.strip:hover .seg:hover{opacity:1}
+.seg[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:1px;opacity:1}
+.strip:hover .seg[aria-pressed="true"]{opacity:1}
+.strip-readout{
+  margin-top:1rem;border-top:1px solid var(--rule);padding-top:.85rem;min-height:4.5rem;
+}
+.strip-readout .rn{font-family:var(--mono);font-size:.75rem;color:var(--accent);letter-spacing:.03em}
+.strip-readout .rd{font-size:var(--step--1);color:var(--ink-2);margin-top:.25rem;line-height:1.6}
+.strip-readout .rmagic{margin-top:.4rem;font-family:var(--mono);font-size:.7rem;color:var(--muted);word-break:break-all}
+.legend{display:flex;flex-wrap:wrap;gap:.35rem .9rem;margin-top:.9rem}
+.legend div{display:flex;align-items:center;gap:.4rem;font-size:.7rem;font-family:var(--mono);color:var(--muted)}
+.swatch{width:11px;height:11px;border-radius:2px;flex:none}
+
+/* ---------- 分区 ---------- */
+section{margin-top:clamp(3.25rem,7vw,5rem);scroll-margin-top:1.5rem}
+.sec-head{
+  display:grid;grid-template-columns:5.5rem 1fr;gap:1.5rem;align-items:baseline;
+  border-top:2px solid var(--ink);padding-top:.9rem;margin-bottom:1.75rem;
+}
+.sec-head .no{
+  font-family:var(--mono);font-size:.75rem;color:var(--accent);letter-spacing:.08em;
+  font-variant-numeric:tabular-nums;padding-top:.35rem;
+}
+.sec-head h2{font-size:var(--step-3);font-weight:600}
+.sec-head .sub{grid-column:2;font-size:var(--step--1);color:var(--muted);margin-top:.4rem;max-width:64ch}
+@media (max-width:640px){
+  .sec-head{grid-template-columns:1fr;gap:.35rem}
+  .sec-head .sub{grid-column:1}
+}
+.body-col{display:grid;grid-template-columns:5.5rem 1fr;gap:1.5rem}
+.body-col > .content{min-width:0}
+@media (max-width:640px){.body-col{grid-template-columns:1fr;gap:0}}
+.prose{max-width:66ch;display:flex;flex-direction:column;gap:1rem}
+.prose ul,.prose ol{margin:0;padding-left:1.25rem;display:flex;flex-direction:column;gap:.5rem}
+.prose li::marker{color:var(--muted)}
+
+/* ---------- 表格 ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:var(--step--1);min-width:34rem}
+th,td{text-align:left;padding:.6rem .85rem;border-bottom:1px solid var(--rule);vertical-align:top}
+thead th{
+  font-family:var(--mono);font-size:.6875rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;background:var(--surface-2);white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--surface-2)}
+td code{background:transparent;padding:0;color:var(--ink);font-size:.9em}
+td.mono,.mono{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.dim{color:var(--muted)}
+
+/* ---------- 分层图 ---------- */
+.layers{display:flex;flex-direction:column;gap:.5rem}
+.layer{
+  display:grid;grid-template-columns:11rem 1fr;gap:1rem;align-items:start;
+  border:1px solid var(--rule);border-left:3px solid var(--layer-c);
+  background:var(--surface);border-radius:3px;padding:.85rem 1rem;
+}
+.layer .lname{
+  font-family:var(--mono);font-size:.75rem;color:var(--layer-c);letter-spacing:.03em;
+  padding-top:.15rem;font-weight:600;
+}
+.layer .lmods{display:flex;flex-wrap:wrap;gap:.3rem}
+.layer .lmods code{font-size:.75rem;background:var(--code-bg)}
+.layer .lnote{font-size:var(--step--1);color:var(--muted);margin-top:.5rem;line-height:1.55}
+@media (max-width:640px){.layer{grid-template-columns:1fr;gap:.5rem}}
+
+/* ---------- 流水线 ---------- */
+ol.pipeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:0;counter-reset:step}
+ol.pipeline > li{
+  display:grid;grid-template-columns:3rem 1fr;gap:1.1rem;position:relative;padding-bottom:1.5rem;
+}
+ol.pipeline > li::before{
+  counter-increment:step;content:counter(step,decimal-leading-zero);
+  font-family:var(--mono);font-size:.75rem;color:var(--accent);padding-top:.32rem;
+  font-variant-numeric:tabular-nums;letter-spacing:.04em;
+}
+ol.pipeline > li::after{
+  content:"";position:absolute;left:1.44rem;top:1.7rem;bottom:0;width:1px;background:var(--rule);
+}
+ol.pipeline > li:last-child{padding-bottom:0}
+ol.pipeline > li:last-child::after{display:none}
+ol.pipeline .pt{font-weight:640;font-family:var(--sans)}
+ol.pipeline .pd{font-size:var(--step--1);color:var(--ink-2);margin-top:.3rem;line-height:1.62;max-width:62ch}
+ol.pipeline .pd + .pd{margin-top:.45rem}
+
+/* ---------- 代码块 ---------- */
+pre.block{
+  background:var(--code-bg);border:1px solid var(--rule);border-radius:3px;
+  padding:.9rem 1.05rem;font-size:.78rem;line-height:1.62;color:var(--ink-2);
+}
+pre.block b{color:var(--accent);font-weight:600}
+pre.block i{color:var(--muted);font-style:normal}
+pre.block em{color:var(--teal);font-style:normal}
+
+/* ---------- 路径卡 ---------- */
+.path{border:1px solid var(--rule);border-radius:3px;background:var(--surface);overflow:hidden;margin-top:1.25rem}
+.path > .ph{
+  display:flex;align-items:center;gap:.7rem;padding:.7rem 1rem;
+  border-bottom:1px solid var(--rule);background:var(--surface-2);flex-wrap:wrap;
+}
+.path > .ph .dot{width:9px;height:9px;border-radius:50%;background:var(--path-c);flex:none}
+.path > .ph h3{font-size:var(--step-1);font-weight:620;font-family:var(--sans)}
+.path > .ph .tag{
+  font-family:var(--mono);font-size:.6875rem;color:var(--path-c);
+  border:1px solid var(--path-c);border-radius:2px;padding:.1rem .42rem;letter-spacing:.03em;
+}
+.path > .pb{padding:1rem 1.15rem 1.2rem;display:flex;flex-direction:column;gap:.9rem}
+.path .prose{gap:.7rem}
+
+/* ---------- 概念网格 ---------- */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(19rem,1fr));gap:.75rem}
+.card{
+  border:1px solid var(--rule);border-top:2px solid var(--card-c,var(--accent));
+  background:var(--surface);border-radius:3px;padding:.95rem 1.05rem;
+}
+.card h4{font-family:var(--mono);font-size:.8125rem;color:var(--card-c,var(--accent));letter-spacing:.02em;font-weight:600}
+.card p{font-size:var(--step--1);color:var(--ink-2);margin-top:.5rem;line-height:1.64}
+.card p + p{margin-top:.5rem}
+
+/* ---------- 坑 ---------- */
+ul.gotchas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.65rem}
+ul.gotchas li{
+  display:grid;grid-template-columns:1.5rem 1fr;gap:.75rem;
+  font-size:var(--step--1);color:var(--ink-2);line-height:1.64;
+}
+ul.gotchas li::before{
+  content:"!";font-family:var(--mono);font-size:.7rem;font-weight:700;color:var(--rose);
+  border:1px solid var(--rose);border-radius:50%;width:1.15rem;height:1.15rem;
+  display:flex;align-items:center;justify-content:center;margin-top:.28rem;
+}
+
+/* ---------- 目录 ---------- */
+nav.toc{
+  margin-top:2.5rem;border:1px solid var(--rule);background:var(--surface);
+  border-radius:3px;padding:1.1rem 1.25rem;
+}
+nav.toc .eyebrow{display:block;margin-bottom:.7rem}
+nav.toc ol{
+  list-style:none;margin:0;padding:0;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:.3rem 1.5rem;
+}
+nav.toc a{
+  display:grid;grid-template-columns:2rem 1fr;gap:.4rem;padding:.3rem 0;
+  font-size:var(--step--1);color:var(--ink-2);border-bottom:1px solid transparent;
+}
+nav.toc a:hover{color:var(--accent);text-decoration:none;border-bottom-color:var(--rule)}
+nav.toc a .n{font-family:var(--mono);font-size:.7rem;color:var(--muted);font-variant-numeric:tabular-nums;padding-top:.15rem}
+
+footer{margin-top:5rem;border-top:1px solid var(--rule);padding-top:1.25rem;font-size:.75rem;color:var(--muted);font-family:var(--mono);line-height:1.8}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important;animation:none !important}
+}
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="kicker">GPLv3 · Python 2.7 / 3.4+ · 库与命令行</div>
+  <h1>KindleUnpack 架构解剖</h1>
+  <p class="lede">
+    一个把非 DRM 的 Kindle / MobiPocket 电子书<strong>逆向还原成可编辑源文件</strong>的解包器。
+    它不做格式转换，而是重建 Kindlegen 打包前的中间产物——所以理解它的关键，
+    是理解它如何把一条扁平的 PalmDB 记录序列，重新分层成"容器 → 元数据 → 索引 → 标记语言 → 打包"。
+  </p>
+  <div class="meta">
+    <span class="chip">版本 <b>v0.84</b></span>
+    <span class="chip">lib/ <b>22</b> 模块</span>
+    <span class="chip">≈<b>7,900</b> 行</span>
+    <span class="chip">入口 <b>unpackBook()</b></span>
+    <span class="chip">格式 <b>MOBI / PRC / AZW / AZW3 / AZW4</b></span>
+    <span class="chip">本文不含 GUI</span>
+  </div>
+
+  <figure class="strip-figure">
+    <div class="strip-head">
+      <span class="t">PalmDB 记录条带 · 一本 Combo 书（Mobi7 + KF8 合体）的物理布局</span>
+      <span class="t dim">点击任一段</span>
+    </div>
+    <div class="strip" id="strip" role="group" aria-label="PalmDB 记录条带示意图"></div>
+    <div class="strip-readout" id="readout" aria-live="polite"></div>
+    <div class="legend">
+      <div><span class="swatch" style="background:var(--accent)"></span>结构 / 头部</div>
+      <div><span class="swatch" style="background:var(--slate)"></span>正文记录</div>
+      <div><span class="swatch" style="background:var(--teal)"></span>资源段</div>
+      <div><span class="swatch" style="background:var(--violet)"></span>索引 / 辅助</div>
+      <div><span class="swatch" style="background:var(--rose)"></span>边界 / EOF</div>
+    </div>
+  </figure>
+
+  <nav class="toc" aria-label="目录">
+    <span class="eyebrow">目录</span>
+    <ol>
+      <li><a href="#s1"><span class="n">01</span><span>它做什么：四种输入，四种输出</span></a></li>
+      <li><a href="#s2"><span class="n">02</span><span>五层架构</span></a></li>
+      <li><a href="#s3"><span class="n">03</span><span>主流水线 unpackBook()</span></a></li>
+      <li><a href="#s4"><span class="n">04</span><span>阶段一：资源段扫描</span></a></li>
+      <li><a href="#s5"><span class="n">05</span><span>阶段二：三条重建路径</span></a></li>
+      <li><a href="#s6"><span class="n">06</span><span>贯穿全库的六个核心概念</span></a></li>
+      <li><a href="#s7"><span class="n">07</span><span>模块速查</span></a></li>
+      <li><a href="#s8"><span class="n">08</span><span>输出目录结构</span></a></li>
+      <li><a href="#s9"><span class="n">09</span><span>已知缺陷与设计取向</span></a></li>
+    </ol>
+  </nav>
+</header>
+
+<!-- ================= 01 ================= -->
+<section id="s1">
+  <div class="sec-head">
+    <div class="no">01</div>
+    <h2>它做什么：四种输入，四种输出</h2>
+    <p class="sub">输出形态完全由输入书的物理结构决定——这不是一个转换器，是一个按结构分派的还原器。</p>
+  </div>
+  <div class="body-col"><div></div><div class="content">
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>输入类型</th><th>判定依据</th><th>输出</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">.mobi .prc .azw</td>
+            <td class="dim">Mobi6/7，version ≠ 8</td>
+            <td>旧式 <code>book.html</code> + <code>Images/</code> + <code>content.opf</code></td>
+          </tr>
+          <tr>
+            <td class="mono">.azw3</td>
+            <td class="dim">KF8，version = 8 或 start ≠ 0</td>
+            <td>epub 目录树 + <code>.epub</code> 压缩包</td>
+          </tr>
+          <tr>
+            <td class="mono">Combo</td>
+            <td class="dim">正文中夹一个 <code>BOUNDARY</code> 段</td>
+            <td>上面两套，分别落在 <code>mobi7/</code> 与 <code>mobi8/</code></td>
+          </tr>
+          <tr>
+            <td class="mono">.azw4</td>
+            <td class="dim">Print Replica，rawML 首 4 字节为 <code>%MOP</code></td>
+            <td>原始 PDF + 附属二进制段 + OPF</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div></div>
+</section>
+
+<!-- ================= 02 ================= -->
+<section id="s2">
+  <div class="sec-head">
+    <div class="no">02</div>
+    <h2>五层架构</h2>
+    <p class="sub">每一层只依赖下一层，且都只暴露极窄的接口——这是全库能同时支撑三种书型的原因。</p>
+  </div>
+  <div class="body-col"><div></div><div class="content">
+    <div class="layers">
+
+      <div class="layer" style="--layer-c:var(--accent)">
+        <div class="lname">编排层</div>
+        <div>
+          <div class="lmods"><code>kindleunpack.py</code></div>
+          <div class="lnote">
+            唯一的流程控制中心。<code>unpackBook()</code> 负责判定书型、驱动资源扫描、把每个 MobiHeader 分派到对应路径；
+            其余全部 <code>process*()</code> 函数都是"按 section magic 分派的处理器"。全局开关 <code>DUMP</code> /
+            <code>WRITE_RAW_DATA</code> / <code>SPLIT_COMBO_MOBIS</code> 也定义在这一层。
+          </div>
+        </div>
+      </div>
+
+      <div class="layer" style="--layer-c:var(--slate)">
+        <div class="lname">容器 / 元数据层</div>
+        <div>
+          <div class="lmods"><code>mobi_sectioner</code><code>mobi_header</code><code>mobi_uncompress</code><code>mobi_split</code><code>mobi_utils</code></div>
+          <div class="lnote">
+            <code>Sectionizer</code> 把文件变成"第 n 段字节"；<code>MobiHeader</code> 把 record 0 变成元数据字典 + 一组索引段号；
+            解压器（PalmDOC / HUFF-CDIC）以函数指针形式挂在 <code>MobiHeader.unpack</code> 上；<code>mobi_split</code> 绕过前两者，
+            直接对字节做 PDB 结构编辑。
+          </div>
+        </div>
+      </div>
+
+      <div class="layer" style="--layer-c:var(--violet)">
+        <div class="lname">索引层</div>
+        <div>
+          <div class="lmods"><code>mobi_index</code></div>
+          <div class="lnote">
+            唯一的 <code>INDX</code> 解析器（TAGX 标签表 / IDXT 条目偏移 / CTOC 字符串池）。
+            NCX、KF8 骨架、KF8 片段、Guide、字典词条、页码表<strong>全部</strong>共用它——
+            这是整库复用度最高的一块代码。
+          </div>
+        </div>
+      </div>
+
+      <div class="layer" style="--layer-c:var(--teal)">
+        <div class="lname">格式重建层</div>
+        <div>
+          <div class="lmods"><code>mobi_k8proc</code><code>mobi_html</code><code>mobi_k8resc</code><code>mobiml2xhtml</code><code>mobi_ncx</code><code>mobi_nav</code><code>mobi_pagemap</code><code>mobi_dict</code></div>
+          <div class="lnote">
+            Mobi7 与 KF8 在这里分道扬镳：前者做"字节偏移锚点回填"，后者做"骨架 / 片段重组 + <code>kindle:*</code> URI 改写"。
+            两条路都用<strong>手写扫描器</strong>而非 XML 库——因为 Kindlegen 的产物常常并不合法。
+          </div>
+        </div>
+      </div>
+
+      <div class="layer" style="--layer-c:var(--rose)">
+        <div class="lname">输出层</div>
+        <div>
+          <div class="lmods"><code>mobi_opf</code><code>mobi_cover</code><code>unpack_structure</code></div>
+          <div class="lnote">
+            三条路径最终都汇聚到 <code>OPFProcessor.writeOPF()</code>；<code>fileNames</code> 负责目录树与 OCF 规范的 epub 打包
+            （<code>mimetype</code> 必须首个写入且不压缩）。
+          </div>
+        </div>
+      </div>
+
+      <div class="layer" style="--layer-c:var(--muted)">
+        <div class="lname">横切</div>
+        <div>
+          <div class="lmods"><code>compatibility_utils</code><code>unipath</code><code>imghdr</code></div>
+          <div class="lnote">
+            Py2/Py3 兼容层（<code>bchr</code> / <code>bord</code> / <code>bstr</code> 专门解决 Py3 下 <code>bytes[i]</code> 返回 int 的问题）、
+            统一 unicode 路径封装、以及标准库 <code>imghdr</code> 在 Python 3.13 被移除后的内置替代品。
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div></div>
+</section>
+
+<!-- ================= 03 ================= -->
+<section id="s3">
+  <div class="sec-head">
+    <div class="no">03</div>
+    <h2>主流水线 unpackBook()</h2>
+    <p class="sub">编号即真实执行顺序。<code>lib/kindleunpack.py:876</code></p>
+  </div>
+  <div class="body-col"><div></div><div class="content">
+    <ol class="pipeline">
+      <li>
+        <div>
+          <div class="pt">建立输出目录树</div>
+          <div class="pd"><code>fileNames(infile, outdir)</code> 立刻创建 <code>mobi7/</code>、<code>mobi7/Images/</code>、<code>HDImages/</code>。
+          epub 相关目录不在此刻建——只有确认有 KF8 部分后，才调 <code>makeK8Struct()</code>。</div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="pt">装载 PalmDB 容器</div>
+          <div class="pd"><code>Sectionizer(infile)</code> 把<strong>整个文件读进内存</strong>，一次性解出全部记录偏移表，
+          并在末尾追加一个 <code>(filelength, 0)</code> 哨兵——这样"第 n 段的结束"永远等于"第 n+1 段的开始"，连最后一段也不例外。</div>
+          <div class="pd">随后校验 <code>ident ∈ {BOOKMOBI, TEXtREAd}</code>，否则直接抛 <code>unpackException('Invalid file format')</code>。</div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="pt">解析 record 0</div>
+          <div class="pd"><code>MobiHeader(sect, 0)</code>。这一步做完，书的一切元信息都已就位：标题、语言、<code>metadata</code> 字典、
+          压缩器函数指针、以及 <code>firstresource</code> / <code>ncxidx</code> / <code>skelidx</code> / <code>fragidx</code> / <code>guideidx</code> / <code>fdst</code> 等索引段号。</div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="pt">判定书型</div>
+          <div class="pd">三条岔路，见下方判定逻辑。判定结果决定要不要建 epub 目录、要不要跑拆分。</div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="pt">可选：拆分合体书</div>
+          <div class="pd"><code>mobi_split(infile)</code> 在字节层面重建两个独立 PDB，产出
+          <code>mobi7-&lt;name&gt;.mobi</code> 与 <code>mobi8-&lt;name&gt;.azw3</code>。它与前面的 <code>Sectionizer</code> /
+          <code>MobiHeader</code> <strong>完全不共享代码</strong>，自己按常量偏移读 record 0。</div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="pt">逐 MobiHeader 处理</div>
+          <div class="pd"><code>process_all_mobi_headers()</code>：对 <code>mhlst</code> 里的每个 <code>MobiHeader</code>
+          （Mobi7 一个、KF8 一个）依次执行"元数据 → DRM 检查 → 资源段扫描 → 按类型出口"。</div>
+          <div class="pd">DRM 检查很干脆：<code>isEncrypted()</code> 为真就 <code>raise unpackException('Book is encrypted')</code>，本库不处理任何加密内容。</div>
+        </div>
+      </li>
+      <li>
+        <div>
+          <div class="pt">收尾归类</div>
+          <div class="pd"><code>processUnknownSections()</code> 把扫描过后仍无描述的段统一归类命名——
+          识别出三连空字节 / 双空字节 / 单空字节的终止标记、<code>INDX</code> 段，以及真正的"神秘段"。</div>
+        </div>
+      </li>
+    </ol>
+
+    <div style="margin-top:1.75rem">
+      <div class="eyebrow" style="display:block;margin-bottom:.7rem">书型判定</div>
+      <pre class="block"><b>if</b> mh.isK8():                    <i># start != 0 或 version == 8</i>
+    → KF8-only，直接开始
+
+<b>else:</b>                             <i># 扫描全部 section，找长度恰为 8 字节的 b"BOUNDARY"</i>
+    <b>for</b> i <b>in</b> range(len(sectionoffsets) - 1):
+        <b>if</b> (after - before) == 8 <b>and</b> loadSection(i) == b"BOUNDARY":
+            mh = MobiHeader(sect, i + 1)   <i># BOUNDARY 的下一段就是 KF8 的 record 0</i>
+            K8Boundary = i                 <i># 记录分界，供资源扫描划定上界</i>
+            → Combo
+    → 未命中则为纯 Mobi7</pre>
+      <div class="prose" style="margin-top:1rem">
+        <p><strong><code>K8Boundary</code> 的作用容易被忽略。</strong>资源段扫描的循环上界是
+        <code>end = sect.num_sections</code>，但一旦 <code>beg &lt; K8Boundary</code>，上界就被压到 <code>K8Boundary</code>——
+        否则 Mobi7 那一轮会把 KF8 部分的图片、字体、RESC 全部当成自己的资源重复提取一遍。</p>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<!-- ================= 04 ================= -->
+<section id="s4">
+  <div class="sec-head">
+    <div class="no">04</div>
+    <h2>阶段一：资源段扫描</h2>
+    <p class="sub">从 <code>mh.firstresource</code> 遍历到上界，按 record 起始 4 字节 magic 分派。这段循环同时是 <code>rscnames</code> 数组的构建过程。</p>
+  </div>
+  <div class="body-col"><div></div><div class="content">
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Magic</th><th>处理</th><th>产出 / 副作用</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">FLIS FCIS FDST DATP</td><td>仅命名，可选 dump</td><td class="dim">append(None)</td></tr>
+          <tr><td class="mono">SRCS</td><td><code>data[16:]</code> 直接落盘</td><td><code>kindlegensrc.zip</code></td></tr>
+          <tr><td class="mono">CMET</td><td><code>data[10:]</code> 直接落盘</td><td><code>kindlegenbuild.log</code></td></tr>
+          <tr><td class="mono">PAGE</td><td><code>PageMapProcessor</code></td><td><code>mobiN-&lt;name&gt;.apnx</code></td></tr>
+          <tr><td class="mono">FONT</td><td>解头 → XOR 去混淆前 1040 字节 → zlib → 看 magic 定扩展名</td><td><code>Images/fontNNNNN.ttf|otf</code></td></tr>
+          <tr><td class="mono">CRES</td><td>HD 图；<code>use_hd</code> 时<strong>覆盖</strong>同名低清图</td><td>覆盖原图，或落 <code>HDImages/</code></td></tr>
+          <tr><td class="mono">CONT</td><td>HD 容器头，只 dump EXTH</td><td class="dim">append(None)</td></tr>
+          <tr><td class="mono">kind</td><td><code>kindle:embed</code> 描述串</td><td class="dim">append(None)</td></tr>
+          <tr><td class="mono">\xa0 ×4</td><td>空占位</td><td class="dim">append(None)，<strong>但仍占一个编号</strong></td></tr>
+          <tr><td class="mono">RESC</td><td><code>K8RESCProcessor(data[16:])</code></td><td>spine 顺序 + EPUB3 元数据</td></tr>
+          <tr><td class="mono">BOUNDARY</td><td>分界段</td><td class="dim">append(None)</td></tr>
+          <tr><td class="mono">\xe9\x8e\r\n</td><td>EOF record</td><td class="dim">append(None)</td></tr>
+          <tr><td class="mono">其它</td><td><code>imghdr</code> 判图，失败则归为神秘段</td><td><code>imageNNNNN.ext</code> / <code>cover*</code> / <code>thumb*</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prose" style="margin-top:1.5rem">
+      <p><strong><code>rscnames</code> 是这一阶段的真正产物。</strong>它是一个与 section 一一对应的名字数组，
+      下标就是正文里 <code>recindex="N"</code> 和 <code>kindle:embed:&lt;base32&gt;</code> 引用资源的编号。
+      由此推出两条硬约束：</p>
+      <ul>
+        <li>任何"不产生资源"的段都必须 <code>append(None)</code> <strong>占位</strong>，绝不能跳过——否则后面所有资源编号错位。</li>
+        <li>这正是 <code>mobi_split</code> 删除 <code>RESC</code> / <code>FONT</code> 时用 <code>nullsection()</code> 而非 <code>deletesectionrange()</code> 的原因：
+        前者清空段体但保留 record 槽位，编号不变；后者会整体前移，毁掉全部图片引用。</li>
+      </ul>
+      <p>同时维护的 <code>rsc_ptr</code> 记录"第一个真正的资源"位置，用于让 CRES 高清图对回它所替换的原图。</p>
+    </div>
+  </div></div>
+</section>
+
+<!-- ================= 05 ================= -->
+<section id="s5">
+  <div class="sec-head">
+    <div class="no">05</div>
+    <h2>阶段二：三条重建路径</h2>
+    <p class="sub">同一份 rawML，三种完全不同的还原策略。</p>
+  </div>
+  <div class="body-col"><div></div><div class="content">
+
+    <!-- Mobi7 -->
+    <div class="path" style="--path-c:var(--accent)">
+      <div class="ph">
+        <span class="dot"></span>
+        <h3>Mobi7 路径</h3>
+        <span class="tag">字节偏移锚点回填</span>
+        <span class="dim mono" style="margin-left:auto">processMobi7()</span>
+      </div>
+      <div class="pb">
+        <pre class="block">rawML = mh.getRawML()              <i># 逐正文记录剥 trailer → 解压 → 拼接</i>
+ncx_data = ncxExtract.parseNCX()
+positionMap = dictSupport(...).getPositionMap()   <i># 仅字典书</i>
+
+srctext = HTMLProcessor.findAnchors(rawML, ncx_data, positionMap)
+srctext, usedmap = HTMLProcessor.insertHREFS()</pre>
+        <div class="prose">
+          <p><strong><code>findAnchors()</code> 的顺序陷阱。</strong>它先把所有 <code>filepos=\d+</code> 出现的位置收集起来，
+          在每个字节偏移处生成一个空锚点 <code>&lt;a id="fileposN" /&gt;</code>，最后<strong>统一排序拼装回原文</strong>。
+          必须先收集后拼装——边扫描边插入会让每个插入点之后的偏移全部失效。</p>
+          <p><strong><code>insertHREFS()</code> 做三件事：</strong><code>filepos=0*N</code> → <code>href="#fileposN"</code>；
+          <code>recindex="N"</code> → <code>src="Images/&lt;rscnames[N-1]&gt;"</code>；在 <code>&lt;html&gt;</code> 之后补 charset meta。</p>
+          <p><strong>guide 从原文正则抓取</strong>（<code>&lt;guide&gt;(.*)&lt;/guide&gt;</code>），修正大小写、把 <code>filepos</code> 换成
+          <code>#fileposN</code>，再叠加 EXTH 116 <code>StartOffset</code>。</p>
+          <p class="dim"><code>mobiml2xhtml.MobiMLConverter</code> 是同一思路的老式独立实现（MOBI 专有标签 → XHTML + 内联 CSS 提类），
+          嵌套 <code>&lt;font&gt;</code> 用 <code>font_history</code> 栈展开成线性序列。它是一个可以脱离插件单独运行的遗留组件。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- KF8 -->
+    <div class="path" style="--path-c:var(--teal)">
+      <div class="ph">
+        <span class="dot"></span>
+        <h3>KF8 路径</h3>
+        <span class="tag">骨架 / 片段重组 + URI 改写</span>
+        <span class="dim mono" style="margin-left:auto">processMobi8()</span>
+      </div>
+      <div class="pb">
+        <pre class="block">rawML
+ ├─ <em>K8Processor.buildParts(rawML)</em>          <i>← 核心</i>
+ ├─ guide ← Guide INDX（空则回退 EXTH 116）        ─┐
+ ├─ PageMapProcessor → page-map.xml                 │
+ ├─ ncxExtract.parseNCX() → getIDTagByPosFid()      │ 数据准备
+ ├─ <em>XHTMLK8Processor.buildXHTML()</em>       <i>← URI 改写</i>   │
+ ├─ CoverProcessor（必要时插封面页）                 ─┘
+ ├─ 写 OEBPS/Text/*.xhtml、Styles/*.css、Images/*.svg
+ ├─ OPFProcessor(epubver) → content.opf
+ ├─ toc.ncx / nav.xhtml
+ └─ fileNames.makeEPUB() → zip</pre>
+
+        <div class="prose">
+          <p><strong>① <code>buildParts()</code> 是理解 KF8 的钥匙。</strong>Kindlegen 把正文拆成若干
+          <code>&lt;html&gt;</code> <strong>骨架（skeleton）</strong>，每个骨架里按插入点塞入若干
+          <strong>片段（fragment）</strong>；两者都存在 INDX 索引里。重组算法就是：</p>
+          <ol>
+            <li><strong>FDST 切 flows</strong> —— <code>FDST</code> 段给出若干偏移，相邻两两切片，
+            把 rawML 尾部那些非正文内容（CSS / SVG）切出来。代码只取每对的起点，末尾用 <code>mh.rawSize</code> 收尾。</li>
+            <li><strong>骨架 + 片段重组</strong> —— 取出骨架字节块，按片段表的插入点切 <code>head</code> / <code>tail</code>，
+            拼 <code>head + fragment + tail</code>，插入点随每次插入推进。每个骨架产出一个 <code>Text/partNNNN.xhtml</code>。</li>
+            <li><strong>flows 分类</strong> —— 含 <code>&lt;svg&gt;</code> 且内含 <code>&lt;image&gt;</code> 的标记为 <code>inline</code>
+            （稍后原地内联进正文，因为浏览器不渲染"SVG 里再引用栅格图"）；其余 CSS 落 <code>Styles/</code>、SVG 落 <code>Images/</code>。</li>
+          </ol>
+          <p class="dim">若插入点落在标签中间，<code>locate_beg_end_of_tag()</code> 会找到该 <code>aid</code> 标签的真实边界重算插入点并回写 <code>fragtbl</code>——
+          这是对 Kindlegen 产物瑕疵的容错。</p>
+
+          <p><strong>② <code>buildXHTML()</code> 是纯正则改写，且顺序敏感。</strong>
+          <code>kindle:pos</code> <strong>必须最先处理</strong>，因为后续改写会破坏位置信息：</p>
+        </div>
+
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>遇到</th><th>处理</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">kindle:pos:fid:&lt;b32&gt;:off:&lt;b32&gt;</td><td><code>getIDTagByPosFid()</code> → <code>filename</code> 或 <code>filename#idtag</code></td></tr>
+              <tr><td class="mono">aid="…"</td><td>一律删除；仅 <code>linked_aids</code> 里的保留成 <code>id="aid-NNN"</code></td></tr>
+              <tr><td class="mono">data-AmznPageBreak</td><td>→ <code>style="page-break-after:…"</code></td></tr>
+              <tr><td class="mono">kindle:embed:&lt;b32&gt;</td><td>base32 解出 <strong>1-based</strong> 索引 → <code>rscnames[n-1]</code> → <code>../Images/</code> 或 <code>../Fonts/</code></td></tr>
+              <tr><td class="mono">kindle:flow:&lt;b32&gt;?mime=…</td><td><code>inline</code> 则整段替换，否则 → <code>../Styles/</code> 或 <code>../Images/</code></td></tr>
+              <tr><td class="mono">&lt;svg viewbox&gt; &lt;li value&gt;</td><td>修正为合法 XHTML（<code>viewBox</code>；删除非法 <code>value</code>）</td></tr>
+              <tr><td class="mono">fixed-layout</td><td>注入 <code>&lt;meta name="viewport"&gt;</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="prose">
+          <p><strong>③ <code>K8RESCProcessor</code> 补回 Kindlegen 丢掉的信息。</strong>
+          RESC 段里存着<strong>原始 content.opf 的片段</strong>——从中恢复 <code>spine</code> 顺序（<code>skelid</code> → itemref）、
+          <code>page-progression-direction</code>，以及 EPUB3 的 <code>refines</code> 元数据。
+          它用手写容错扫描器（<code>parseresc</code> / <code>parsetag</code> / <code>resc_tag_iter</code>）而非 XML 库，
+          因为 Kindlegen 写出的 OPF 片段并不严格合法。</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Print Replica -->
+    <div class="path" style="--path-c:var(--violet)">
+      <div class="ph">
+        <span class="dot"></span>
+        <h3>Print Replica 路径</h3>
+        <span class="tag">表驱动切片</span>
+        <span class="dim mono" style="margin-left:auto">processPrintReplica()</span>
+      </div>
+      <div class="pb">
+        <div class="prose">
+          <p>rawML 本身就是一张表：先读 <code>numTables</code>，再逐表读 section 数，
+          然后按 <code>(offset, length)</code> 对切出每一段。约定<strong>每张表的第 0 段是 PDF</strong>，其余是二进制数据。</p>
+          <p>产出 <code>&lt;base&gt;.001.pdf</code>（第 1 表）与 <code>&lt;base&gt;.NNN.MMM.data</code>，最后仍生成一个 OPF 去描述它们。</p>
+          <p class="dim" style="margin-top:.3rem">整个切片过程包在 <code>try/except</code> 里——表结构损坏时只打印错误，不中断整本书的解包。</p>
+        </div>
+      </div>
+    </div>
+
+  </div></div>
+</section>
+
+<!-- ================= 06 ================= -->
+<section id="s6">
+  <div class="sec-head">
+    <div class="no">06</div>
+    <h2>贯穿全库的六个核心概念</h2>
+    <p class="sub">这六件事理解了，剩下的模块基本只是排列组合。</p>
+  </div>
+  <div class="body-col"><div></div><div class="content">
+    <div class="grid2">
+
+      <div class="card" style="--card-c:var(--accent)">
+        <h4>Section ≡ PalmDB record</h4>
+        <p><code>Sectionizer</code> 只干一件事：<code>loadSection(n)</code>。所有 MOBI 语义都在 <code>MobiHeader</code> 里。</p>
+        <p>record 0 的物理结构是 <code>16B PalmDOC 前缀 + MOBI header + EXTH + 标题</code>，
+        所有内部偏移都<strong>相对 record 0</strong>，由 <code>MobiHeader.__init__</code> 逐个 <code>+= self.start</code> 转成绝对段号。</p>
+        <p class="dim"><code>self.start</code> 对 KF8 部分就是 <code>EXTH 121</code> 指出的段号，这也正是 <code>isK8()</code> 的判据。</p>
+      </div>
+
+      <div class="card" style="--card-c:var(--slate)">
+        <h4>三种压缩</h4>
+        <p><code>1</code> 无压缩 · <code>2</code> PalmDOC LZ77 变体 · <code>0x4448</code>（<code>'DH'</code>）HUFF/CDIC。</p>
+        <p>HUFF/CDIC 是静态 Huffman + 短语字典：<code>dict1</code> 按码字首字节索引，<code>dict2</code> 给出每个码长的 min/max，
+        构成 canonical 解码表。CDIC 短语最高位 <code>0x8000</code> 表示"是否已展开"，未展开则<strong>惰性递归解压并 memoize</strong>。</p>
+        <p class="dim">CDIC 可以有多段，增量拼接进同一个短语表。</p>
+      </div>
+
+      <div class="card" style="--card-c:var(--violet)">
+        <h4>Trailer 剥离</h4>
+        <p>正文记录末尾附加的元数据，长度用<strong>变长 base-128 从末尾反向扫描</strong>得到（高位 <code>0x80</code> 为终止标志），逐条剥离。</p>
+        <p>仅在 <code>BOOKMOBI</code> + <code>mobi_length ≥ 0xE4</code> + <code>version ≥ 5</code> 时启用；PalmDOC 没有 trailer。</p>
+      </div>
+
+      <div class="card" style="--card-c:var(--teal)">
+        <h4>两套位置引用体系</h4>
+        <p>这是 Mobi7 与 KF8 最本质的区别：</p>
+        <div class="tablewrap" style="border:0;background:transparent">
+          <table style="min-width:0;font-size:.75rem">
+            <thead><tr><th></th><th>Mobi7</th><th>KF8</th></tr></thead>
+            <tbody>
+              <tr><td class="dim">跳转</td><td class="mono">filepos=N</td><td class="mono">kindle:pos:fid:…</td></tr>
+              <tr><td class="dim">资源</td><td class="mono">recindex="N"</td><td class="mono">kindle:embed:…</td></tr>
+              <tr><td class="dim">样式</td><td class="dim">内联属性</td><td class="mono">kindle:flow:…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="--card-c:var(--slate)">
+        <h4>INDX / TAGX / CTOC</h4>
+        <p>所有索引的统一底层：<code>INDX</code> 头 13 个 32 位字段 → <code>TAGX</code> 标签表
+        <code>(tag, valuesPerEntry, mask, endFlag)</code> → <code>IDXT</code> 条目偏移 → 每条目是
+        <code>文本长度 + key 文本 + 控制字节 + VWI 变长值</code>。</p>
+        <p><code>CTOC</code> 是配套的字符串池——NCX 标题、字典词条都存这里。多段 CTOC 时用 <code>rec_off += 0x10000</code> 做偏移基址防冲突。</p>
+      </div>
+
+      <div class="card" style="--card-c:var(--rose)">
+        <h4>usedmap 三态</h4>
+        <p><code>'used'</code> / <code>'not used'</code> / <code>'maybe'</code>。OPF manifest 跳过 <code>not used</code>，
+        <code>makeEPUB()</code> 只拷贝 <code>used</code> 的资源。</p>
+        <p>封面缩略图被<strong>故意</strong>标成 <code>not used</code>——因为 Kindlegen 会重新生成它，放进 manifest 反而是错的。</p>
+      </div>
+
+    </div>
+  </div></div>
+</section>
+
+<!-- ================= 07 ================= -->
+<section id="s7">
+  <div class="sec-head">
+    <div class="no">07</div>
+    <h2>模块速查</h2>
+    <p class="sub"><code>lib/</code> 下 22 个模块，按调用顺序排列。</p>
+  </div>
+  <div class="body-col"><div></div><div class="content">
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>模块</th><th>核心类 / 函数</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">kindleunpack</td><td class="mono">unpackBook</td><td>流程控制中心，<code>process*()</code> 处理器集合</td></tr>
+          <tr><td class="mono">mobi_sectioner</td><td class="mono">Sectionizer</td><td>PalmDB 容器；唯一取数入口 <code>loadSection()</code>；段描述标注机制</td></tr>
+          <tr><td class="mono">mobi_header</td><td class="mono">MobiHeader</td><td>record 0 语义解析：MOBI 头 / EXTH / 全部索引指针 / trailer 剥离</td></tr>
+          <tr><td class="mono">mobi_uncompress</td><td class="mono">PalmdocReader<br>HuffcdicReader</td><td>三种解压器，均为 <code>unpack(data) → bytes</code> 的鸭子类型</td></tr>
+          <tr><td class="mono">mobi_split</td><td class="mono">mobi_split</td><td>合体书 → 独立 mobi7 + azw3；自带一套 PDB 编辑原语</td></tr>
+          <tr><td class="mono">mobi_utils</td><td class="mono">getLanguage<br>toBase32</td><td>语言码表、base32 编解码、字体 XOR 混淆</td></tr>
+          <tr><td class="mono">mobi_index</td><td class="mono">MobiIndex<br>getTagMap</td><td>INDX / TAGX / IDXT / CTOC 解析——全库复用度最高的模块</td></tr>
+          <tr><td class="mono">mobi_k8proc</td><td class="mono">K8Processor</td><td>FDST 切 flows、骨架 + 片段重组、位置 → 文件的解析 API</td></tr>
+          <tr><td class="mono">mobi_html</td><td class="mono">HTMLProcessor<br>XHTMLK8Processor</td><td>两条清洗路径：filepos/recindex 回填 vs <code>kindle:*</code> URI 改写</td></tr>
+          <tr><td class="mono">mobi_k8resc</td><td class="mono">K8RESCProcessor</td><td>从 RESC 还原 spine 顺序与 EPUB3 元数据</td></tr>
+          <tr><td class="mono">mobiml2xhtml</td><td class="mono">MobiMLConverter</td><td>老式 MOBI 标记 → XHTML 的独立转换器（可单独运行）</td></tr>
+          <tr><td class="mono">mobi_ncx</td><td class="mono">ncxExtract</td><td>NCX 解析与生成，同时服务 Mobi7（filepos）与 KF8（file#id）</td></tr>
+          <tr><td class="mono">mobi_nav</td><td class="mono">NAVProcessor</td><td>EPUB3 <code>nav.xhtml</code>：TOC 与 landmarks（含 OPF→EPUB3 语义映射）</td></tr>
+          <tr><td class="mono">mobi_pagemap</td><td class="mono">PageMapProcessor</td><td>页码表 → <code>page-map.xml</code> 与二进制 <code>.apnx</code></td></tr>
+          <tr><td class="mono">mobi_dict</td><td class="mono">dictSupport</td><td>词典 INDX：<code>idx:entry</code> / <code>idx:orth</code> / <code>idx:infl</code> 与变形规则</td></tr>
+          <tr><td class="mono">mobi_opf</td><td class="mono">OPFProcessor</td><td>OPF 生成：metadata / manifest / spine / guide / refines / fixed-layout</td></tr>
+          <tr><td class="mono">mobi_cover</td><td class="mono">CoverProcessor</td><td>封面图识别与封面 xhtml 生成（SVG 包装实现缩放）</td></tr>
+          <tr><td class="mono">unpack_structure</td><td class="mono">fileNames</td><td>输出目录树 + OCF 规范的 epub 打包</td></tr>
+          <tr><td class="mono">compatibility_utils</td><td class="mono">bchr / bord / bstr</td><td>Py2/Py3 兼容层，字符串与字节规范化出口</td></tr>
+          <tr><td class="mono">unipath</td><td class="mono">pathof</td><td>路径统一为 unicode 的薄封装</td></tr>
+          <tr><td class="mono">imghdr</td><td class="mono">what</td><td>标准库 <code>imghdr</code> 在 Python 3.13 被移除后的内置替代</td></tr>
+          <tr><td class="mono">mobi_sectioner</td><td class="mono">describe</td><td>字节流可视化（<code>"文本" 0xHEX</code>），用于段描述与调试输出</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div></div>
+</section>
+
+<!-- ================= 08 ================= -->
+<section id="s8">
+  <div class="sec-head">
+    <div class="no">08</div>
+    <h2>输出目录结构</h2>
+    <p class="sub"><code>mobi8/</code> 下的布局严格遵循 EPUB OCF 规范。</p>
+  </div>
+  <div class="body-col"><div></div><div class="content">
+    <pre class="block">&lt;outdir&gt;/
+├── <b>mobi7/</b>
+│   ├── book.html          content.opf        toc.ncx
+│   └── Images/            <i>imageNNNNN.jpg · cover*.jpg · font*.ttf</i>
+├── <b>mobi8/</b>                                    <i>← 仅 KF8 / Combo</i>
+│   ├── META-INF/  container.xml  <i>[encryption.xml]</i>
+│   ├── OEBPS/
+│   │   ├── content.opf  toc.ncx  nav.xhtml  page-map.xml
+│   │   ├── Text/    <i>part0000.xhtml … cover_page.xhtml</i>
+│   │   ├── Styles/  style0001.css …
+│   │   ├── Images/  <i>含 svgimgNNNN.svg</i>
+│   │   └── Fonts/
+│   └── &lt;name&gt;.epub                          <i>← 打包结果</i>
+├── HDImages/                                <i>← CRES 资源</i>
+├── header.dat  header_K8.dat                <i>← -d dump</i>
+├── kindlegensrc.zip  kindlegenbuild.log     <i>← 若原书内嵌</i>
+└── mobi7-&lt;name&gt;.mobi  mobi8-&lt;name&gt;.azw3      <i>← -s 拆分产物</i></pre>
+
+    <div class="prose" style="margin-top:1.5rem">
+      <p><strong><code>makeEPUB()</code> 有两个容易被误读的细节。</strong>其一，<code>mimetype</code> 必须
+      <strong>第一个写入且不压缩</strong>（<code>ZIP_STORED</code>）——标准库 <code>zipfile</code> 不允许给
+      <code>ZipInfo</code> 传 <code>compress_type</code>，所以自定义了一个子类。其二，有混淆字体时会额外写
+      <code>META-INF/encryption.xml</code>（Adobe <code>enc#RC</code> 算法），并用 OPF 的 uid 派生 XOR key
+      重新混淆字体文件。</p>
+    </div>
+  </div></div>
+</section>
+
+<!-- ================= 09 ================= -->
+<section id="s9">
+  <div class="sec-head">
+    <div class="no">09</div>
+    <h2>已知缺陷与设计取向</h2>
+    <p class="sub">阅读源码时最容易踩空的地方。</p>
+  </div>
+  <div class="body-col"><div></div><div class="content">
+
+    <div class="eyebrow" style="display:block;margin-bottom:.85rem">设计取向</div>
+    <div class="prose" style="margin-bottom:2rem">
+      <ul>
+        <li><strong>全库不用 XML 库解析输入。</strong><code>mobiml2xhtml</code>、<code>mobi_k8resc</code> 都是手写字节 / 字符扫描器。
+        原因是 Kindlegen 产出的标记常不合法，DOM 解析会直接抛异常。</li>
+        <li><strong>无图像重采样。</strong>代码里没有任何 resize 调用。封面的"缩放"靠 SVG
+        <code>viewBox</code> + <code>preserveAspectRatio</code> 交给阅读器完成；高清替换是
+        <code>CRES</code> 段的整文件覆盖。</li>
+        <li><strong>不处理 DRM。</strong><code>isEncrypted()</code> 为真即抛异常，没有降级路径。</li>
+        <li><strong>有意保留 EPUB2 兼容产物。</strong><code>OPFProcessor</code> 顶部的
+        <code>EPUB3_WITH_NCX</code> 与 <code>EPUB3_WITH_GUIDE</code> 即使在产出 EPUB3 时也置为
+        <code>True</code>，源码注释明确写着"不要改成 False"。</li>
+      </ul>
+    </div>
+
+    <div class="eyebrow" style="display:block;margin-bottom:.85rem">具体缺陷</div>
+    <ul class="gotchas">
+      <li><span><strong><code>mobi_k8resc.py:119</code> 的拼写错误。</strong><code>page-progession-direction</code> 少了一个 <code>r</code>，
+      导致该属性永远读不到值，这条路径上的 RTL 检测完全失效。修正拼写即可，但会改变现有行为。</span></li>
+      <li><span><strong><code>mobi_k8proc.py:190</code> 的硬编码切片。</strong><code>aidtext = idtext[12:-2]</code>
+      依赖 aid 文本的确切格式，一旦格式变化就会取错。好在只影响容错分支 <code>locate_beg_end_of_tag</code>。</span></li>
+      <li><span><strong><code>mobi_k8resc.py:55</code> 用 <code>data.find(b'\x00')</code> 找 RESC 结尾。</strong>
+      若 RESC 正文里含 NUL 字节会被提前截断——只触发 Warning，不报错，所以问题会静默传播。</span></li>
+      <li><span><strong><code>mobi_header.py</code> 偏移表里的重复 key。</strong><code>'unknown0'</code> 出现两次、
+      <code>'Unknown    '</code> 出现 13 次，dict 字面量后者覆盖前者，导致 <code>dumpheader</code> 输出缺项。不影响解析逻辑，只影响 dump。</span></li>
+      <li><span><strong><code>mobi_k8proc.py:83</code> 的 FDST 表只保留每对的起点。</strong>
+      这意味着相邻 flow 段必须首尾连续，否则中间字节会被丢弃。</span></li>
+      <li><span><strong><code>mobi_header.py:653</code> 在 <code>fdstcnt ≤ 1</code> 时主动丢弃 FDST。</strong>
+      因为此时段号很可能是垃圾值——这是一个刻意的防御，而非 bug。</span></li>
+    </ul>
+
+  </div></div>
+</section>
+
+<footer>
+  KindleUnpack v0.84 · GPLv3 · 基于 Charles M. Hannum 2009 年的 mobipocket 版本<br>
+  本文档仅覆盖 <code>lib/</code> 库与命令行逻辑，不含 Tk GUI。<br>
+  在浏览器里运行同一份 <code>lib/</code> 的 Pyodide 版本见 <code>web/README.md</code>，
+  入场简报见 <code>web/docs/HANDOFF.md</code>。
+</footer>
+
+</div>
+
+<script>
+(function () {
+  var SEGMENTS = [
+    { w: 26, c: 'var(--accent)', ink: '#3a1c04', label: 'REC 0', name: 'REC 0 — MOBI header',
+      desc: '整本书的索引中枢。物理结构为 16 字节 PalmDOC 前缀 + MOBI header + EXTH + 标题。所有内部偏移都相对这一段的起点，由 MobiHeader.__init__ 逐个加上 self.start 转成绝对段号。',
+      magic: 'records=0x08 · crypto_type=0x0C · first_nontext=0x50 · title=0x54 · exth_flags=0x80 · first_resc=0x6C · fdst=0xC0 · fragidx=0xF8 · skelidx=0xFC · guideidx=0x104' },
+
+    { w: 78, c: 'var(--slate)', ink: '#0d1b28', label: 'REC 1…N', name: 'REC 1…N — 正文记录（compressed text）',
+      desc: '正文按最大段大小切成多条记录。getRawML() 逐条剥离尾部 trailer 元数据、调用解压器、再拼接成完整的 rawML。解压发生在这一层，产出物才第一次成为可读的 HTML 标记。',
+      magic: 'compression: 1=无压缩  2=PalmDOC LZ77  0x4448=HUFF/CDIC' },
+
+    { w: 30, c: 'var(--violet)', ink: '#1b1030', label: 'IDX/AUX', name: '索引与辅助段',
+      desc: 'HUFF/CDIC 解压表、NCX 索引、缩略图索引等。全部由 mobi_index.MobiIndex 统一解析 —— INDX 头 → TAGX 标签表 → IDXT 条目偏移 → 值区。这是全库复用度最高的模块。',
+      magic: 'HUFF · CDIC · INDX · TAGX · IDXT · CTOC · FLIS · FCIS · DATP' },
+
+    { w: 74, c: 'var(--teal)', ink: '#04211f', label: 'RESOURCES', name: '资源段',
+      desc: '图片、字体、RESC、FDST、PAGE、SRCS 等。扫描时按 record 起始 4 字节 magic 分派给各自的 process*() 处理器，并同步构建 rscnames 数组 —— 它的下标就是正文里 recindex / kindle:embed 的引用编号，所以不产出资源的段也必须占一个 None 槽位。',
+      magic: 'RESC · FONT · CRES · CONT · PAGE · SRCS · CMET · FDST · kindle:embed' },
+
+    { w: 4, c: 'var(--rose)', ink: '#2a0410', label: 'BND', name: 'BOUNDARY — Mobi7 / KF8 分界',
+      desc: '长度恰好 8 字节、内容为 b"BOUNDARY" 的分隔段。unpackBook() 靠扫描它来判定这是一本合体书，并记住 K8Boundary —— 该值同时充当资源扫描循环的硬上界，防止 Mobi7 那一轮把 KF8 的资源重复提取一遍。',
+      magic: 'data == b"BOUNDARY"  (且 after - before == 8)' },
+
+    { w: 26, c: 'var(--accent)', ink: '#3a1c04', label: 'KF8 REC 0', name: 'KF8 REC 0 — 第二个 MOBI header',
+      desc: 'KF8 部分自己的 record 0。它的存在使 mh.start ≠ 0，这正是 isK8() 的判据。KF8 专用的索引指针（fragment_index 0xF8、skeleton_index 0xFC、guide_index 0x104）与 fdst 偏移都挂在这一段上。',
+      magic: 'version=0x24 → 8 · fragment_index=0xF8 · skeleton_index=0xFC · guide_index=0x104' },
+
+    { w: 58, c: 'var(--slate)', ink: '#0d1b28', label: 'KF8 TEXT', name: 'KF8 正文（骨架 + 片段）',
+      desc: 'KF8 的正文不是按段连续存放的：它由若干 <html> 骨架组成，片段按「插入点」散落在其后。K8Processor.buildParts() 依据 fragment/skeleton 两张 INDX 表把它们重新拼装成 Text/partNNNN.xhtml；FDST 则把尾部的 CSS / SVG 切出来。',
+      magic: 'FDST 表 → flows  ·  fragment INDX → 插入点  ·  skeleton INDX → 骨架范围' },
+
+    { w: 40, c: 'var(--teal)', ink: '#04211f', label: 'KF8 RES', name: 'KF8 资源段',
+      desc: '与 Mobi7 共享同一批图片与字体（合体书里它们是物理共享的，这也正是 mobi_split 需要用 nullsection 保号的原因）。RESC 段只存在于 KF8 部分，里面存着 Kindlegen 原始 content.opf 的片段。',
+      magic: 'RESC（→ spine 顺序 + EPUB3 元数据）· FONT · CRES · CONT' },
+
+    { w: 8, c: 'var(--rose)', ink: '#2a0410', label: 'EOF', name: 'EOF record',
+      desc: '内容固定为 b"\\xe9\\x8e\\r\\n" 的终止记录。mobi_split 在删除段区间时特意保留它（deletesectionrange 的终点取 num_sec - 2），它是重建后的单机 mobi7 文件里唯一被原样保留的收尾结构。',
+      magic: 'EOF_RECORD = b"\\xe9\\x8e" + b"\\r\\n"' }
+  ];
+
+  var strip = document.getElementById('strip');
+  var readout = document.getElementById('readout');
+  if (!strip || !readout) return;
+
+  SEGMENTS.forEach(function (s, i) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'seg';
+    b.style.setProperty('--seg', s.c);
+    b.style.setProperty('--seg-ink', s.ink);
+    b.style.flex = s.w + ' 1 0';
+    b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+    b.setAttribute('aria-label', s.name);
+    var span = document.createElement('span');
+    span.textContent = s.label;
+    b.appendChild(span);
+    b.addEventListener('click', function () { select(i); });
+    b.addEventListener('mouseenter', function () { render(i); });
+    strip.appendChild(b);
+  });
+
+  function select(i) {
+    Array.prototype.forEach.call(strip.children, function (el, j) {
+      el.setAttribute('aria-pressed', j === i ? 'true' : 'false');
+    });
+    render(i);
+  }
+
+  function render(i) {
+    var s = SEGMENTS[i];
+    readout.innerHTML = '';
+    var n = document.createElement('div');
+    n.className = 'rn';
+    n.textContent = s.name;
+    var d = document.createElement('div');
+    d.className = 'rd';
+    d.textContent = s.desc;
+    var m = document.createElement('div');
+    m.className = 'rmagic';
+    m.textContent = s.magic;
+    readout.appendChild(n);
+    readout.appendChild(d);
+    readout.appendChild(m);
+  }
+
+  render(0);
+})();
+</script>
