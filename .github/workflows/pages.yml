@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # 建/更新 release 需要
+  contents: read
   pages: write
   id-token: write
 
@@ -27,23 +27,6 @@ jobs:
       - name: Build single-file page
         run: python3 web/build.py
 
-      # 挂到一个 tag 固定为 latest 的 release 上并覆盖旧资产，
-      # 于是 /releases/latest/download/kindleunpack.html 永远是最新构建。
-      - name: Publish downloadable build
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: latest
-          name: 最新构建
-          make_latest: true
-          files: web/kindleunpack.html
-          body: |
-            由 CI 从 master 分支自动构建的单文件版本。
-
-            下载 `kindleunpack.html` 后直接双击即可在浏览器打开（首次需要联网
-            加载 Pyodide 运行时）。
-
-            在线版：https://oliviaswitch.github.io/KindleUnpackWeb/
-
       # Pages 的「Deploy from a branch」只能选仓库根或 /docs 两个位置，
       # 而把 index.html 放仓库根会让 Pages 把整个仓库当站点发布。
       # 所以这里另建 _site 目录，只上传真正要公开的文件。
@@ -53,6 +36,15 @@ jobs:
           cp web/kindleunpack.html _site/index.html
           cp web/docs/architecture.html _site/architecture.html
           touch _site/.nojekyll
+
+      # 传一份给 release job，让它发布的字节与部署上线的完全一致，
+      # 而不是在另一个 runner 上重新构建一遍。
+      - name: Stage downloadable build
+        uses: actions/upload-artifact@v4
+        with:
+          name: kindleunpack-html
+          path: web/kindleunpack.html
+          if-no-files-found: error
 
       - uses: actions/configure-pages@v5
 
@@ -69,3 +61,31 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # 与 deploy 并列而非串联：release 失败不会连累站点部署。
+  # 写权限只给这个 job。
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: kindleunpack-html
+
+      # tag 固定为 latest 并覆盖旧资产，于是
+      # /releases/latest/download/kindleunpack.html 永远指向最新构建。
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: 最新构建
+          make_latest: true
+          files: kindleunpack.html
+          body: |
+            由 CI 从 master 分支自动构建的单文件版本。
+
+            下载 `kindleunpack.html` 后直接双击即可在浏览器打开（首次需要联网
+            加载 Pyodide 运行时）。
+
+            在线版：https://oliviaswitch.github.io/KindleUnpackWeb/

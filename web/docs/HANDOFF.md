@@ -167,7 +167,10 @@ KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master�
 
 ### 5.5 实施状态
 
-**已完成**：`.github/workflows/pages.yml` 已跑通。它一次构建、两路发布：
+**已完成**：`.github/workflows/pages.yml` 已跑通。分三个 job：`build` 构建并暂存产物，
+`deploy` 与 `release` 都 `needs: build`、**并列而非串联**，所以 release 失败不会连累站点部署。
+产物经 `actions/upload-artifact` 从 `build` 传给 `release`，保证发布出去的就是部署上线的那些字节
+（而不是另起一个 runner 重新构建一遍）。两路发布：
 
 - **Pages** —— 产物复制成 `_site/index.html`，连同 `web/docs/architecture.html` 一起部署
 - **Release** —— 产物挂到 tag 固定为 `latest` 的 release 上（`softprops/action-gh-release`），
@@ -176,8 +179,7 @@ KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master�
 `web/build.py` **不需要改**——产物仍写 `web/kindleunpack.html`，本地开发流程不变。
 
 注意 `.github/` 是 `web/` 之外**唯一**的新增目录，这是 GitHub 的硬性要求（workflow 只能放这里），
-不构成对隔离约定的破坏。另外 workflow 需要 `contents: write` 权限（建 release 用），
-比只有 Pages 时多了一项。
+不构成对隔离约定的破坏。`contents: write` 只授予 `release` job，workflow 其余部分仍是只读。
 
 固定地址：
 
