@@ -38,6 +38,16 @@ python3 -m http.server -d web 8000
 jsDelivr 带 `Access-Control-Allow-Origin: *`），但部分浏览器会拦截 `file://` 页面的
 跨源 `fetch`，所以推荐用上面的本地服务器。
 
+## 部署
+
+`master` 每次 push 都会触发 `.github/workflows/pages.yml`：CI 里跑 `build.py`，把产物复制成
+`_site/index.html`，连同 `docs/architecture.html` 一起部署到 GitHub Pages。构建产物不入库，
+站点无需人工更新——同步上游后也会自动重建。
+
+站点：<https://oliviaswitch.github.io/KindleUnpackWeb/>
+
+本地开发流程不受影响，仍然是 `python3 web/build.py` 产出 `web/kindleunpack.html`。
+
 ## 工作原理
 
 页面启动时：

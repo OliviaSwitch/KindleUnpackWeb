@@ -1,0 +1,54 @@
+name: Build and deploy web version
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Build single-file page
+        run: python3 web/build.py
+
+      # Pages 的「Deploy from a branch」只能选仓库根或 /docs 两个位置，
+      # 而把 index.html 放仓库根会让 Pages 把整个仓库当站点发布。
+      # 所以这里另建 _site 目录，只上传真正要公开的文件。
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp web/kindleunpack.html _site/index.html
+          cp web/docs/architecture.html _site/architecture.html
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

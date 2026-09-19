@@ -120,17 +120,17 @@
 
 ---
 
-## 5. GitHub 发布方案（已定，未实施）
+## 5. GitHub 发布方案（已实施）
 
-2026-09-19 决定：把本地克隆 fork 成 `KindleUnpackWeb` 推到 GitHub，用 Pages 发布网页版。
-**方案已敲定，代码尚未动手。**
+2026-09-19：本地克隆已 fork 成 `OliviaSwitch/KindleUnpackWeb` 并推送，`master` 领先上游 1 个提交；
+Pages 的 workflow 也已写好。剩下的是在 GitHub 上点两下人工开关（见 5.3）。
 
 ### 5.1 目标结构
 
 ```
 KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master）
 ├── lib/  libgui/  COPYING.txt  README.md …    上游原样，一个字节不动
-├── .github/workflows/pages.yml                待建
+├── .github/workflows/pages.yml                已建：构建 + 组装 _site + 部署 Pages
 └── web/                                       唯一的新增顶层目录
     ├── build.py  app.js  template.html  README.md
     ├── .gitignore                             （已加：忽略构建产物 kindleunpack.html）
@@ -165,9 +165,17 @@ KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master�
 在 GitHub 上任何人都能读到。Actions 只发布构建产物，所以本目录不会出现在站点上，但它仍是公开内容。
 要真正不公开，只能不提交。
 
-### 5.5 尚未做
+### 5.5 实施状态
 
-`web/build.py` 的输出路径调整（现仍写 `web/kindleunpack.html`）、`.github/workflows/pages.yml`。
+**已完成**：`.github/workflows/pages.yml`。`web/build.py` **不需要改**——产物仍写
+`web/kindleunpack.html`，由 workflow 复制成 `_site/index.html`，本地开发流程不变。
+
+注意 `.github/` 是 `web/` 之外**唯一**的新增目录，这是 GitHub 的硬性要求（workflow 只能放这里），
+不构成对隔离约定的破坏。
+
+**还需人工做一次**：启用 Actions、把 Pages 的 Source 切成「GitHub Actions」（见 5.3）。
+
+站点结构：`/` = 应用本体，`/architecture.html` = 架构文档。
 
 ---
 
