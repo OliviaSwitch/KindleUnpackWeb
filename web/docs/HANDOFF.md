@@ -38,6 +38,7 @@
 
 - 构建：`python3 web/build.py` → 单文件 `web/kindleunpack.html`（336 KB，内联全部 Python 源码）
 - 运行：`python3 -m http.server -d web 8000`
+- 离线版：`python3 web/build_full.py` → `web/kindleunpack-full.html`（约 17 MB，机制见 2.2）
 - `web/app.js` 是胶水层，`web/template.html` 是页面骨架，`web/README.md` 是完整说明
 
 **两个非显而易见的坑，已在代码里处理**：
@@ -45,7 +46,68 @@
 1. `unpackBook()` 把 `DUMP` / `WRITE_RAW_DATA` / `SPLIT_COMBO_MOBIS` 三个模块级 global 锁成 `True` 且**从不重置**——重复运行时必须在调用前显式重置，否则第二次会静默继承第一次的选项。
 2. Python 3.13+ 移除了 stdlib `imghdr`，仓库自带的 `lib/imghdr.py` 会接管。Pyodide 用的是 3.14，这条路径已实测。
 
-**已知缺陷**：`unpackBook()` 是同步 Python，跑在主线程上，解包期间标签页冻结。正解是把 Pyodide 生命周期挪进 Web Worker（不能简单用 blob URL worker，`file://` 下会被拦截）。
+### 2.2 中国大陆可用性问题（已实现，未实测）
+
+用户指出：**国内用户基本加载不了这个页面**。运行时来自 `cdn.jsdelivr.net`，
+不带代理会卡在"下载 wasm 与标准库"这一步。
+
+2026-09-20 用户改了口径，方向收敛为：
+
+- **「同源托管」不做了。** 原方案是把 Pyodide 运行时放站点的同源路径下、`indexURL` 指过去，
+  用户明确否掉。Pages 上的在线版继续走 CDN。
+- **只做完全版，且形态是单文件 HTML、双击即用。** 另两种形态讨论后都被否掉：
+  zip + 本地 HTTP 服务器（普通国内用户起不来服务）、zip + 文件夹（体积与单文件相当，
+  却多一层构建期文本转换，得不偿失）。
+- release 目前仍只发轻量版一个产物；把完全版接进去是待办，见第 6 节。
+
+需要内联的文件是五个（约 13.5 MB）：
+
+| 文件 | 大小 | 加载方式 |
+|---|---|---|
+| `pyodide.asm.mjs` | 1.2 MB | JS 胶水，由 `indexURL` + 文件名动态 `import()` |
+| `pyodide.asm.wasm` | 9.6 MB | 二进制本体 |
+| `python_stdlib.zip` | 2.5 MB | 标准库 |
+| `pyodide.js` | 19 KB | 加载器本身，classic script，挂 `globalThis.loadPyodide` |
+| `pyodide-lock.json` | 119 KB | 包索引，`loadPyodide()` 默认会 `fetch` 它 |
+
+**2026-09-20 更正——原先这里写的三条"技术前提"有两条是错的，已作废：**
+
+- ❌ 「把 `indexURL` 指向一个 blob/data 目录、三个文件全内联，理论上可行」。
+  **不成立**。`URL.createObjectURL()` 生成的形如 `blob:https://host/<uuid>`，而加载器是用
+  **字符串拼接**构造 wasm 地址的（`indexURL + "pyodide.asm.wasm"`，见 `xe()`），拼出来的 URL
+  在 blob 注册表里查不到，`fetch` 必然失败。data: 同理，且 Chromium 的 URL 长度上限约 2 MB，
+  连 stdlib 的 base64（3.4 MB）都塞不下。**`indexURL` 必须是真目录。**
+- ❌ 「`findWasmBinary()` 优先走 `Module.locateFile`，是关键路径」。**它根本不在路径上。**
+  `createSettings()` 总是塞入 `instantiateWasm`，于是胶水的 `createWasm()` 直接走
+  `Module["instantiateWasm"]` 分支，`findWasmBinary()` 一次都不会被调用。原先把一条死路径
+  当成了关键路径。
+
+**正确的做法**：绕开 `indexURL`，改用加载器自己提供的四个配置钩子，逐一喂给它——
+
+| 输入 | 钩子 | 做法 |
+|---|---|---|
+| `pyodide.asm.mjs` | `createPyodideModule` | 构建期转成 classic script 内联，省掉动态 `import()` |
+| `pyodide.asm.wasm` | `Module.wasmBinary` + 自定义 `instantiateWasm` | base64 → 字节，完全不取网络 |
+| `python_stdlib.zip` | `stdLibURL` | base64 → Blob URL |
+| `pyodide-lock.json` | `lockFileContents` | 内联成 JS 对象，跳过唯一的 `fetch().json()` |
+
+三条已核实的关键事实：
+
+1. **胶水会读 `Module["wasmBinary"]`**（`if(Module["wasmBinary"])wasmBinary=Module["wasmBinary"]`），
+   所以 wasm 字节可以直接注入，完全不经过 URL。
+2. **548 个 wasm 导入（254 `env` / 14 `wasi_snapshot_preview1` / 280 `GOT.func`）全部由胶水自带的
+   `wasmImports` 覆盖**，包括 `Jsv_GetError_import` / `JsvError_Check`——但胶水里这两个是
+   `()=>{}` 空桩，`pyodide.js` 会用一段 90 字节的 base64 小 wasm 把它们升级成真实现。
+   自己写 `instantiateWasm` 时必须顺手补上，否则 Python 回调里抛的 JS 异常会**静默消失**。
+3. **`pyodide.asm.mjs` 整体就是一个 `async function _createPyodideModule(moduleArg={}){…}`
+   加末尾一行 `export default`**，ESM 语法只有 3 处 `import.meta.url`。可以机械地转成 classic
+   script——这一点很关键，因为 `file://` 下动态 `import()` 加载本地模块会被浏览器拦掉。
+
+`cdnUrl` 默认仍指向 jsdelivr，但只有 `loadPackage`（装 wheel 包）会用到；当前场景不装任何包，
+所以不触发。已在配置里显式把 `packageBaseUrl` 设成本地，防将来引入依赖时突然要网络。
+
+**已实施**：`web/build_full.py` 产出 `web/kindleunpack-full.html`（约 17 MB）。完整机制、
+踩坑清单与验证步骤见 `web/README.md` 的「离线版」一节。**浏览器实测尚未做**，见第 6 节。
 
 ---
 
@@ -182,6 +244,22 @@ KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master�
 注意 `.github/` 是 `web/` 之外**唯一**的新增目录，这是 GitHub 的硬性要求（workflow 只能放这里），
 不构成对隔离约定的破坏。`contents: write` 只授予 `release` job，workflow 其余部分仍是只读。
 
+**离线版已接进 CI**（2026-09-20，在用户浏览器实测通过之后）：
+
+- `build` job 多两步：先 `npm install pyodide@<版本>` 取运行时——版本号从 `web/build.py` 的
+  `PYODIDE_VERSION` 现读，不走 CDN 是为了拿到 registry 的 integrity 校验，且与本地开发
+  同一条来源——再跑 `build_full.py --runtime-dir`。两步都标了 `continue-on-error: true`：
+  运行时取不到、或离线版构建失败时只发轻量版并打一条 warning，**不连累 Pages 部署和
+  轻量版发布**。
+- 两个产物先收进 `dist/` 再经 `upload-artifact` 传给 `release`，保证发布出去的字节与
+  构建产出的完全一致。
+- `release` job 的文件清单用 `ls -1 *.html` 现算，写死的话离线版缺席时 action 会报错。
+- **离线版不上 Pages**：在线用户用轻量版就够了，没必要让他们下 18 MB。
+
+`build_full.py` 另外加了一道运行时版本守卫：运行时目录里若带 `package.json` 且版本与
+`PYODIDE_VERSION` 不符，直接构建失败。混用版本的报错本来要到浏览器里 `loadPyodide()` 才
+冒出来，那时已经晚了好几 MB。
+
 固定地址：
 
 - 在线版 <https://oliviaswitch.github.io/KindleUnpackWeb/>
@@ -200,7 +278,12 @@ KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master�
   - INDX/TAGX 的位级解码（`mobi_index.getTagMap` 的控制字节 + mask + VWI 逻辑）
 - **未覆盖**：`mobi_dict.py` 的变形规则状态机（`applyInflectionRule`）只做了概述；`DumpMobiHeader_v023.py` 这个独立工具只扫了一眼。
 - **`web/docs/architecture.html` 未发布**成可分享链接（见第 4 节的认证限制；发布方案见第 5 节）。
-- **网页版的界面冻结问题未解**（见 2.1），需要把 Pyodide 挪进 Web Worker。
+- **离线版已实测通过、已接进 CI**（见 2.2 与 5.5）。只剩一个小口子：实测记录没说清是
+  **双击 `file://` 打开**还是走本地服务器，所以「`file://` 下 `fetch(blobURL)` 取 stdlib 是否
+  被拦」严格说来还没定论。想确认就看 `file://` 打开后 console 里有没有
+  `Error occurred while installing the standard library`——有的话说明跑的是 `preRun` 预写入
+  那条兜底。**无论结果如何都不要删兜底**，两条路是互补的。
+- **界面冻结不是问题**（用户实测），别再为它做改造。
 
 ---
 
@@ -210,7 +293,8 @@ KindleUnpackWeb   （fork 自 kevinhendricks/KindleUnpack，默认分支 master�
 
 按问题类型分流：
 
-- **网页版相关**（怎么构建/运行、为什么界面会冻结、怎么改 UI、怎么加选项）→ 先读 `web/README.md`，它有完整的构建、运行、限制说明。改 `web/app.js` 或 `web/template.html` 后记得重跑 `python3 web/build.py`。
+- **网页版相关**（怎么构建/运行、界面为什么冻结、怎么改 UI、怎么加选项）→ 先读 `web/README.md`，它有完整的构建、运行、限制说明。改 `web/app.js` 或 `web/template.html` 后记得重跑 `python3 web/build.py` **和** `python3 web/build_full.py`。
+- **离线版 / Pyodide 运行时怎么内联** → `web/README.md` 的「离线版」一节，那里列了四个配置钩子和五个踩坑点，比重新读 `pyodide.js` 快得多。
 - **"某个模块能不能移植到别的语言"** → 读 `web/docs/web-port-plan.md` 第 2、5 节，那里按模块列了字节级陷阱（64 位整数、bytes 正则、编码、文件名），比重新读源码快。
 - **`lib/` 本身的逻辑** → 下面的阅读顺序。
 

@@ -52,11 +52,17 @@
   }
 
   async function boot() {
-    log('加载 Pyodide ' + PYODIDE_VERSION + ' 运行时 …');
-    await loadScript(INDEX_URL + 'pyodide.js');
+    if (globalThis.__KU_BOOT_OFFLINE__) {
+      // Offline build: the whole Pyodide runtime rides along inside this file.
+      log('加载内置运行时（离线版，不访问网络）…');
+      pyodide = await globalThis.__KU_BOOT_OFFLINE__();
+    } else {
+      log('加载 Pyodide ' + PYODIDE_VERSION + ' 运行时 …');
+      await loadScript(INDEX_URL + 'pyodide.js');
 
-    log('下载 wasm 与标准库（约 10 MB，首次加载较慢）…');
-    pyodide = await loadPyodide({ indexURL: INDEX_URL });
+      log('下载 wasm 与标准库（约 10 MB，首次加载较慢）…');
+      pyodide = await loadPyodide({ indexURL: INDEX_URL });
+    }
 
     // Python's stdout/stderr are the only progress channel the library has.
     pyodide.setStdout({ batched: function (s) { logBlock(s); } });
@@ -322,7 +328,9 @@
   log('');
   boot().catch(function (err) {
     log('Pyodide 启动失败：' + err.message, 'e');
-    log('请确认网络可以访问 cdn.jsdelivr.net。', 'e');
+    if (!globalThis.__KU_BOOT_OFFLINE__) {
+      log('请确认网络可以访问 cdn.jsdelivr.net。', 'e');
+    }
     ui.status.textContent = '运行时加载失败';
   });
 })();

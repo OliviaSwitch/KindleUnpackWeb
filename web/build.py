@@ -51,7 +51,7 @@ def main() -> int:
     app_js = (WEB / "app.js").read_text(encoding="utf-8")
     template = (WEB / "template.html").read_text(encoding="utf-8")
 
-    for placeholder in ("/*__LIB_SOURCES__*/", "/*__APP_JS__*/"):
+    for placeholder in ("/*__LIB_SOURCES__*/", "/*__OFFLINE_RUNTIME__*/", "/*__APP_JS__*/"):
         if placeholder not in template:
             print(f"error: placeholder {placeholder} missing from template.html", file=sys.stderr)
             return 1
@@ -61,7 +61,12 @@ def main() -> int:
         return 1
 
     stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
-    html = template.replace("/*__LIB_SOURCES__*/", lib_js).replace("/*__APP_JS__*/", app_js)
+    # This build leaves the inlined-runtime slot empty: it loads Pyodide from the
+    # CDN at runtime. web/build_full.py fills the same slot instead.
+    html = (template
+            .replace("/*__LIB_SOURCES__*/", lib_js)
+            .replace("/*__OFFLINE_RUNTIME__*/", "")
+            .replace("/*__APP_JS__*/", app_js))
     html = html.replace(
         "<title>KindleUnpack Web</title>",
         f"<title>KindleUnpack Web</title>\n"
