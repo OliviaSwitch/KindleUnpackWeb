@@ -27,9 +27,28 @@ jobs:
       - name: Build single-file page
         run: python3 web/build.py
 
+      # 离线版要把整个 Pyodide 运行时内嵌进页面（产物约 18 MB），所以先得有运行时。
+      # 走 npm 而不是让 build_full.py 自己去 CDN 拉，是为了拿到 registry 的 integrity
+      # 校验——本地开发时用的就是 npm 包，这样 CI 与本地是同一条来源。
+      - name: Fetch Pyodide runtime
+        continue-on-error: true
+        run: |
+          version=$(python3 -c "import sys; sys.path.insert(0, 'web'); import build; print(build.PYODIDE_VERSION)")
+          mkdir -p pyodide-npm
+          cd pyodide-npm
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund "pyodide@$version"
+
+      # 离线版是可选产物：这一步失败就只发轻量版，不能让整次发布跟着挂掉。
+      # build_full.py 会核对运行时版本与 web/build.py 里 pin 的是否一致。
+      - name: Build offline single-file page
+        continue-on-error: true
+        run: python3 web/build_full.py --runtime-dir pyodide-npm/node_modules/pyodide
+
       # Pages 的「Deploy from a branch」只能选仓库根或 /docs 两个位置，
       # 而把 index.html 放仓库根会让 Pages 把整个仓库当站点发布。
       # 所以这里另建 _site 目录，只上传真正要公开的文件。
+      # 离线版不上 Pages：在线用户用轻量版就够了，没必要让他们下 18 MB。
       - name: Assemble site
         run: |
           mkdir -p _site
@@ -37,13 +56,23 @@ jobs:
           cp web/docs/architecture.html _site/architecture.html
           touch _site/.nojekyll
 
-      # 传一份给 release job，让它发布的字节与部署上线的完全一致，
+      # 收拢一次，交给 release job。让它发布的字节与这里产出的完全一致，
       # 而不是在另一个 runner 上重新构建一遍。
-      - name: Stage downloadable build
+      - name: Collect downloadable builds
+        run: |
+          mkdir -p dist
+          cp web/kindleunpack.html dist/
+          if [ -f web/kindleunpack-full.html ]; then
+            cp web/kindleunpack-full.html dist/
+          else
+            echo "::warning::离线版未构建成功，本次只发布轻量版"
+          fi
+
+      - name: Stage downloadable builds
         uses: actions/upload-artifact@v4
         with:
-          name: kindleunpack-html
-          path: web/kindleunpack.html
+          name: kindleunpack-builds
+          path: dist
           if-no-files-found: error
 
       - uses: actions/configure-pages@v5
@@ -72,28 +101,40 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: kindleunpack-html
+          name: kindleunpack-builds
+          path: .
 
       # runner 是 UTC，这里换算到作者所在时区，免得凌晨构建被标成前一天。
       - id: stamp
         run: echo "date=$(TZ=Asia/Shanghai date '+%Y-%m-%d')" >> "$GITHUB_OUTPUT"
+
+      # 离线版可能缺席，所以文件清单现算；写死的话缺一个 action 就会报错。
+      - id: collect
+        run: |
+          ls -l *.html
+          echo "files<<__EOF__" >> "$GITHUB_OUTPUT"
+          ls -1 *.html >> "$GITHUB_OUTPUT"
+          echo "__EOF__" >> "$GITHUB_OUTPUT"
 
       # 每次构建发一个自己的 release，而不是往固定 tag 上覆盖旧资产，
       # 于是历史版本连同资产一起留在 Releases 页上。
       # tag 里的 run_number 保证唯一，同一天多次推送不会撞车，
       # 也就不存在「覆盖别人资产」这回事。
       # 下载地址仍然固定：新 release 每次都 make_latest，
-      # /releases/latest/download/kindleunpack.html 始终指向最新构建。
+      # /releases/latest/download/<文件名> 始终指向最新构建。
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ steps.stamp.outputs.date }}-${{ github.run_number }}
           name: ${{ steps.stamp.outputs.date }}
           make_latest: true
-          files: kindleunpack.html
+          files: ${{ steps.collect.outputs.files }}
           body: |
-            由 CI 从 master 分支自动构建的单文件版本。
+            由 CI 从 master 分支自动构建。两个产物，按需要选一个（都是单文件，
+            下载后直接双击即可在浏览器打开）：
 
-            下载 `kindleunpack.html` 后直接双击即可在浏览器打开（首次需要联网
-            加载 Pyodide 运行时）。
+            - `kindleunpack.html` —— **轻量版**，约 340 KB。运行时从 cdn.jsdelivr.net
+              现拉，没有代理的国内网络基本加载不了。
+            - `kindleunpack-full.html` —— **离线版**，约 18 MB。整个 Pyodide 运行时内嵌在
+              页面里，断网也能用。首次打开要解码内嵌数据，白屏几秒属正常。
 
-            在线版：https://oliviaswitch.github.io/KindleUnpackWeb/
+            在线版（即轻量版）：https://oliviaswitch.github.io/KindleUnpackWeb/
